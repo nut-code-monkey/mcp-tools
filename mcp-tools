@@ -1,26 +1,14 @@
 #!/bin/bash
 
-INSTALL_CMD="[ -f ~/.mcp-tools ] && source ~/.mcp-tools"
-
-if [[ "$1" == "--install" ]] || [[ "$0" == *".mcp-tools" ]]; then
-    if ! grep -q "mcp-tools.sh" ~/.zshrc; then
-        echo "$INSTALL_CMD" >> ~/.zshrc
-        echo "✅ Commands MCP added to ~/.zshrc"
-        echo "🔄 Reload env: source ~/.zshrc"
-    else
-        [[ "$1" == "--install" ]] && echo "ℹ️ Already in ~/.zshrc"
-    fi
-    
-    [[ "$0" == *".mcp-tools" ]] && return 2>/dev/null || exit 0
-fi
-
-
 #  --- MCP OrbStack Helpers ---
 
 mcp-run() {
     local name=$1
     shift
     local cmd=$@
+
+    # Pre-clean to avoid name conflicts
+    docker rm -f "$name" >/dev/null 2>&1
     
     docker run -i --rm \
         --name "$name" \
@@ -61,6 +49,7 @@ mcp-run-http() {
     local port=$2
     local cmd=$3
 
+    # Pre-clean to avoid name conflicts
     docker rm -f "$name" >/dev/null 2>&1
 
     echo "🌐 Starting MCP over HTTP (SSE)..."
