@@ -40,12 +40,12 @@ Output MCP configuration:
     "mcpServers": {
         "my-server": {
             "command": "zsh",
-            "args": ["-c", "source ~/.zshrc && mcp-run "my-server", "npx", "-y", "@modelcontextprotocol/server-everything""],
+            "args": ["-c", "source ~/.zshrc && mcp-run my-server npx -y @modelcontextprotocol/server-everything"]
         }
     }
 }
 ```
-Copy it into `claude_desktop_config.json`.
+Copy it into MCP `config.json`.
 
 ### 2. SSE Mode
 Use `mcp-create-http`. The container will run in the background with an `unless-stopped` restart policy.
