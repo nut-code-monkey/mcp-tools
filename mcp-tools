@@ -1,0 +1,128 @@
+#!/bin/bash
+
+INSTALL_CMD="[ -f ~/.mcp-tools ] && source ~/.mcp-tools"
+
+if [[ "$1" == "--install" ]] || [[ "$0" == *".mcp-tools" ]]; then
+    if ! grep -q "mcp-tools.sh" ~/.zshrc; then
+        echo "$INSTALL_CMD" >> ~/.zshrc
+        echo "✅ Commands MCP added to ~/.zshrc"
+        echo "🔄 Reload env: source ~/.zshrc"
+    else
+        [[ "$1" == "--install" ]] && echo "ℹ️ Already in ~/.zshrc"
+    fi
+    
+    [[ "$0" == *".mcp-tools" ]] && return 2>/dev/null || exit 0
+fi
+
+
+#  --- MCP OrbStack Helpers ---
+
+mcp-run() {
+    local name=$1
+    shift
+    local cmd=$@
+    
+    docker run -i --rm \
+        --name "$name" \
+        -v "$(pwd):/app" \
+        -w /app \
+        node:alpine \
+        /bin/sh -c "$cmd"
+}
+
+mcp-create() {
+    if [ "$#" -lt 2 ]; then
+        echo "❌ Error: Missing arguments"
+        echo "Usage: mcp-create <name> <command>"
+        return 1
+    fi
+
+    local name=$1
+    shift
+    local cmd=$@
+    
+    local json_args=$(printf "\"%s\", " "$name" "$@")
+    json_args=${json_args%, }
+
+    echo "MCP config json configuration:"
+    echo "------------------------------"
+    cat <<EOF
+{
+    "mcpServers": {
+        "$name": {
+            "command": "zsh",
+            "args": ["-c", "source ~/.zshrc && mcp-run $json_args"],
+        }
+    }
+}
+EOF
+}
+
+#  mcp-run-http mcp-test-http 3000 "npx -y @modelcontextprotocol/server-everything sse"
+mcp-run-http() {
+    local name=$1
+    local port=$2
+    local cmd=$3
+
+    docker rm -f "$name" >/dev/null 2>&1
+
+    echo "🌐 Starting MCP over HTTP (SSE)..."
+    echo "🔗 http://$name.orb.local:$port"
+    
+    docker run -d \
+        --name "$name" \
+        --restart unless-stopped \
+        -p "$port:$port" \
+        -v "$(pwd):/app" \
+        -w /app \
+        node:alpine \
+        /bin/sh -c "$cmd"
+}
+
+mcp-create-http() {
+    local name=$1
+    local port=$2
+
+    if [[ ! "$port" =~ ^[0-9]+$ ]]; then
+        echo "⚠️ Port not specified, using 3000 by default"
+        port=3000
+        shift 1 
+    else
+        shift 2
+    fi
+
+    local cmd=$@
+    
+    if [ -z "$cmd" ]; then
+        echo "❌ Error: please specify a command (e.g., npx ...)"
+        return 1
+    fi
+
+    echo "🚀 Starting container $name on port $port..."
+    mcp-run-http "$name" "$port" "$cmd"
+    
+    sleep 2
+
+    if [ "$(docker inspect -f '{{.State.Running}}' "$name" 2>/dev/null)" = "true" ]; then
+        echo "✅ Container is running"
+        echo "--------------------------"
+        docker logs "$name"
+        echo "--------------------------"
+        echo "MCP config json configuration:"
+        echo "------------------------------"
+        cat <<EOF
+{
+    "mcpServers": {
+        "$name": {
+            "type": "sse",
+            "url": "http://$name.orb.local:$port/sse"
+        }
+    }
+}
+EOF
+    else
+        echo "❌ Error: Container failed to start."
+        echo "📜 Logs:"
+        docker logs "$name"
+    fi
+}
