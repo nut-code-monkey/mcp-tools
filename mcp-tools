@@ -40,9 +40,6 @@ mcp-create() {
     local name=$1
     shift
     local cmd=$@
-    
-    local json_args=$(printf "\"%s\", " "$name" "$@")
-    json_args=${json_args%, }
 
     echo "MCP config json configuration:"
     echo "------------------------------"
@@ -51,7 +48,7 @@ mcp-create() {
     "mcpServers": {
         "$name": {
             "command": "zsh",
-            "args": ["-c", "source ~/.zshrc && mcp-run $json_args"],
+            "args": ["-c", "source ~/.zshrc && mcp-run $name $cmd"]
         }
     }
 }
